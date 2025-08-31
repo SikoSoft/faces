@@ -5,8 +5,12 @@ A React TypeScript single-page application built with Vite that uses AI-powered 
 ## Features
 
 - **AI Face Detection**: Uses face-api.js for real-time face detection in images
-- **Image Display**: Shows images from a predefined array of face image URLs
-- **Smart Analysis**: Displays "FACE DETECTED" (green) or "NO FACE FOUND" (red) based on actual face detection
+- **Visual Face Overlay**: Automatically draws green rectangles around detected faces
+- **Face Coordinates**: Returns precise x, y, width, height coordinates for each face
+- **Confidence Scoring**: Shows detection confidence percentage for each face
+- **Image Processing**: Creates canvas-based overlays with face bounding boxes
+- **Dynamic Image Loading**: Automatically discovers all images in `public/img/`
+- **Smart Analysis**: Displays count of detected faces with detailed information
 - **Next Image Button**: Cycles through the image array
 - **Responsive Design**: Works on desktop and mobile devices
 - **Loading States**: Shows initialization and analysis progress
@@ -57,20 +61,41 @@ A React TypeScript single-page application built with Vite that uses AI-powered 
 
 1. **Initialization**: The app loads face-api.js models on startup (may take a few seconds)
 2. **Face Detection**: Each image is analyzed using TinyFaceDetector for real-time face detection
-3. **Visual Feedback**: 
-   - **FACE DETECTED** (Green): At least one face was found in the image
+3. **Visual Processing**: 
+   - Canvas API draws green rectangles around detected faces
+   - Original image is overlaid with bounding boxes and confidence scores
+   - Processed image replaces the original in the display
+4. **Data Display**: 
+   - **Face Count**: Shows number of detected faces
+   - **Coordinates**: Displays x, y position for each face
+   - **Dimensions**: Shows width × height of each face rectangle
+   - **Confidence**: AI confidence percentage for each detection
+5. **Visual Feedback**: 
+   - **X FACES DETECTED** (Green): Shows count of detected faces
    - **NO FACE FOUND** (Red): No faces were detected in the image
    - **Detecting faces...** (Blue): AI analysis in progress
    - **Initializing...** (Blue): Loading AI models
-4. **Navigation**: Click "Next Image" to cycle through the image array
-5. **Error Handling**: If model loading fails, a retry option is provided
+6. **Navigation**: Click "Next Image" to cycle through the image array
+7. **Error Handling**: If model loading fails, a retry option is provided
 
-## Image URLs
+## Dynamic Image Loading
 
-The application cycles through these three images:
-- Amber Heard portrait
-- Yael Shelbia portrait  
-- Beautiful woman portrait from FreeRangeStock
+The application automatically discovers and cycles through **all images** in the `public/img/` directory:
+
+### Current Images:
+- `according-to-science-jodie-comer-has-the-most-beautiful-v0-tjvnenep5fda1.webp`
+- `amber-heeard-2.avif`
+- `hoodie1.jpg`
+- `posed-woman-with-beautiful-face.jpg`
+- `rickspringfield-e1718921304910.webp`
+
+### Adding New Images:
+1. Drop any image files into `public/img/`
+2. Run `npm run generate-images` to update the image list
+3. Restart the dev server
+
+### Supported Formats:
+- JPG/JPEG, PNG, GIF, WebP, SVG, AVIF, BMP
 
 ## Architecture
 
@@ -88,10 +113,29 @@ The application cycles through these three images:
 - Uses **TinyFaceDetector** from face-api.js for optimal performance
 - Models are loaded from CDN automatically
 - Detection threshold set to 0.5 for balanced accuracy
-- CORS-enabled image loading for external URLs
+- Works with local images (no CORS issues)
+
+### Dynamic Image System
+- **Build-time Generation**: `scripts/generate-image-list.js` scans `public/img/`
+- **Auto-discovery**: Images are automatically added to the rotation
+- **Type Safety**: Generated TypeScript definitions
+- **Build Integration**: Image list updates automatically during build
 
 ### Performance
 - Lightweight TinyFaceDetector model (~2MB)
 - Efficient caching of loaded models
+- Local image serving (faster than external URLs)
 - Responsive UI with proper loading states
 - Error recovery mechanisms
+
+### Development Workflow
+```bash
+# Add new images
+cp new-image.jpg public/img/
+
+# Update image list
+npm run generate-images
+
+# Or build (includes image generation)
+npm run build
+```

@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { initializeFaceAPI, detectFaces, isFaceAPIInitialized } from './faceDetection'
+import { initializeFaceAPI, detectFaces, isFaceAPIInitialized, FaceDetectionResult, FaceCoordinates } from './faceDetection'
+import { getImageUrls } from './imageLoader'
+import { createFaceDetectionImageUrl } from './canvasUtils'
 
-// Array of image URLs as specified
-const IMAGE_URLS = [
-  'https://hips.hearstapps.com/goodhousekeeping-uk/main/embedded/32567/amber-heeard-2.jpg',
-  'https://c.ndtvimg.com/2021-01/hgh0aplo_yael-shelbia_625x300_22_January_21.jpg',
-  'https://freerangestock.com/sample/137944/posed-woman-with-beautiful-face.jpg'
-]
+// Get image URLs dynamically from public/img directory
+const IMAGE_URLS = getImageUrls()
 
 function App() {
   const [currentImageUrl, setCurrentImageUrl] = useState<string>('')
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0)
   const [analysisResult, setAnalysisResult] = useState<boolean | null>(null)
+  const [faceCoordinates, setFaceCoordinates] = useState<FaceCoordinates[]>([])
+  const [processedImageUrl, setProcessedImageUrl] = useState<string>('')
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false)
   const [isInitializing, setIsInitializing] = useState<boolean>(true)
   const [initError, setInitError] = useState<string | null>(null)
 
-  // Async analyze function that uses face-api.js to detect faces
+  // Async analyze function that uses face-api.js to detect faces and create overlay
   const analyzeImage = async (imageUrl: string): Promise<boolean> => {
     try {
       if (!isFaceAPIInitialized()) {
@@ -25,10 +25,35 @@ function App() {
       }
       
       // Use face-api.js to detect faces in the image
-      const hasFaces = await detectFaces(imageUrl)
-      return hasFaces
+      const result: FaceDetectionResult = await detectFaces(imageUrl)
+      
+      // Update state with face coordinates
+      setFaceCoordinates(result.faces)
+      
+      // Create processed image with face rectangles
+      if (result.hasFaces && result.faces.length > 0) {
+        const overlayImageUrl = createFaceDetectionImageUrl(
+          result.imageElement,
+          result.faces,
+          {
+            strokeColor: '#00ff00',
+            strokeWidth: 4,
+            fillColor: 'rgba(0, 255, 0, 0.1)',
+            showConfidence: true,
+            fontSize: 16
+          }
+        )
+        setProcessedImageUrl(overlayImageUrl)
+      } else {
+        // No faces found, use original image
+        setProcessedImageUrl('')
+      }
+      
+      return result.hasFaces
     } catch (error) {
       console.error('Face analysis failed:', error)
+      setFaceCoordinates([])
+      setProcessedImageUrl('')
       return false
     }
   }
@@ -71,6 +96,11 @@ function App() {
       try {
         setIsInitializing(true)
         setInitError(null)
+        
+        // Check if we have any images
+        if (IMAGE_URLS.length === 0) {
+          throw new Error('No images found in public/img directory. Please add some image files.')
+        }
         
         // Initialize face-api.js
         await initializeFaceAPI()
@@ -126,15 +156,16 @@ function App() {
     <div className="app">
       <h1>Face Analyzer</h1>
       <p>AI-powered face detection using face-api.js</p>
+      <p className="image-count">Found {IMAGE_URLS.length} images in public/img/</p>
       
       {/* Image display area */}
       <div className="image-container">
         {currentImageUrl && (
           <img 
-            src={currentImageUrl} 
-            alt="Analyzed face" 
+            src={processedImageUrl || currentImageUrl} 
+            alt="Face analysis result" 
             className="main-image"
-            onError={() => console.error('Failed to load image:', currentImageUrl)}
+            onError={() => console.error('Failed to load image:', processedImageUrl || currentImageUrl)}
           />
         )}
       </div>
@@ -145,10 +176,33 @@ function App() {
           <div className="indicator analyzing">Detecting faces...</div>
         ) : (
           <div className={`indicator ${analysisResult === true ? 'yes' : analysisResult === false ? 'no' : 'neutral'}`}>
-            {analysisResult === true ? 'FACE DETECTED' : analysisResult === false ? 'NO FACE FOUND' : 'Ready'}
+            {analysisResult === true ? `${faceCoordinates.length} FACE${faceCoordinates.length !== 1 ? 'S' : ''} DETECTED` : analysisResult === false ? 'NO FACE FOUND' : 'Ready'}
           </div>
         )}
       </div>
+
+      {/* Face details */}
+      {faceCoordinates.length > 0 && (
+        <div className="face-details">
+          <h3>Detected Faces:</h3>
+          <div className="face-list">
+            {faceCoordinates.map((face, index) => (
+              <div key={index} className="face-item">
+                <span className="face-number">Face {index + 1}:</span>
+                <span className="face-coords">
+                  Position: ({Math.round(face.x)}, {Math.round(face.y)})
+                </span>
+                <span className="face-size">
+                  Size: {Math.round(face.width)} × {Math.round(face.height)}
+                </span>
+                <span className="face-confidence">
+                  Confidence: {(face.confidence * 100).toFixed(1)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Next image button */}
       <button 

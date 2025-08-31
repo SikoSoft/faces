@@ -120,3 +120,6 @@ public/models/*-shard*
 *.test.ts
 *.spec.js
 *.spec.ts
+
+# Auto-generated files
+src/generated-images.ts
