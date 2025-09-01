@@ -13,16 +13,18 @@ export const initializeFaceAPI = async (): Promise<void> => {
     let MODEL_URL = '/models'
     
     try {
-      // Load only the models we need for face detection
+      // Load models for face detection and facial expression recognition
       await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
       ])
     } catch (localError) {
       console.log('Local models not found, loading from CDN...')
       // Fallback to CDN
       MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'
       await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
       ])
     }
     
@@ -49,12 +51,14 @@ export interface FaceCoordinates {
   width: number
   height: number
   confidence: number
+  expression?: string
+  expressionConfidence?: number
 }
 
 /**
  * Detect faces in an image using face-api.js
  * @param imageUrl - URL of the image to analyze
- * @returns Promise<FaceDetectionResult> - Detection results with coordinates
+ * @returns Promise<FaceDetectionResult> - Detection results with coordinates and expressions
  */
 export const detectFaces = async (imageUrl: string): Promise<FaceDetectionResult> => {
   if (!isInitialized) {
@@ -73,27 +77,38 @@ export const detectFaces = async (imageUrl: string): Promise<FaceDetectionResult
       img.src = imageUrl
     })
 
-    // Detect faces using TinyFaceDetector (faster and lighter)
+    // Detect faces and expressions using TinyFaceDetector and FaceExpressionNet
     const detections = await faceapi.detectAllFaces(
       img,
       new faceapi.TinyFaceDetectorOptions({
         inputSize: 416,
         scoreThreshold: 0.5
       })
-    )
+    ).withFaceExpressions()
 
-    // Convert detections to coordinate format
-    const faces: FaceCoordinates[] = detections.map(detection => ({
-      x: detection.box.x,
-      y: detection.box.y,
-      width: detection.box.width,
-      height: detection.box.height,
-      confidence: detection.score
-    }))
+    // Convert detections to coordinate format with expressions
+    const faces: FaceCoordinates[] = detections.map(detection => {
+      // Get the expression with highest confidence
+      const expressions = detection.expressions
+      const expressionEntries = Object.entries(expressions)
+      const [expression, confidence] = expressionEntries.reduce((a, b) => 
+        expressions[a[0] as keyof typeof expressions] > expressions[b[0] as keyof typeof expressions] ? a : b
+      )
+
+      return {
+        x: detection.detection.box.x,
+        y: detection.detection.box.y,
+        width: detection.detection.box.width,
+        height: detection.detection.box.height,
+        confidence: detection.detection.score,
+        expression: expression,
+        expressionConfidence: confidence
+      }
+    })
 
     console.log(`Detected ${faces.length} face(s) in image: ${imageUrl}`)
     faces.forEach((face, index) => {
-      console.log(`Face ${index + 1}: x=${Math.round(face.x)}, y=${Math.round(face.y)}, w=${Math.round(face.width)}, h=${Math.round(face.height)}, confidence=${face.confidence.toFixed(3)}`)
+      console.log(`Face ${index + 1}: x=${Math.round(face.x)}, y=${Math.round(face.y)}, w=${Math.round(face.width)}, h=${Math.round(face.height)}, confidence=${face.confidence.toFixed(3)}, expression=${face.expression} (${(face.expressionConfidence! * 100).toFixed(1)}%)`)
     })
     
     return {

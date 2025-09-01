@@ -198,6 +198,11 @@ function App() {
                 <span className="face-confidence">
                   Confidence: {(face.confidence * 100).toFixed(1)}%
                 </span>
+                {face.expression && (
+                  <span className="face-expression">
+                    Expression: {face.expression.charAt(0).toUpperCase() + face.expression.slice(1)} ({(face.expressionConfidence! * 100).toFixed(1)}%)
+                  </span>
+                )}
               </div>
             ))}
           </div>

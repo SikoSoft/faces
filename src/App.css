@@ -200,6 +200,11 @@ h1 {
   font-weight: 600;
 }
 
+.face-expression {
+  color: #9C27B0;
+  font-weight: 600;
+}
+
 /* Responsive design */
 @media (max-width: 600px) {
   .app {
